@@ -1,16 +1,16 @@
 #include "../lib/utils.hpp"
 
 
-std::queue<Atom *> load_atom_queue_from_file(FILE *fptr){
+std::vector<Atom *> load_atom_queue_from_file(FILE *fptr){
     char line[81];
-    std::queue<Atom *> atom_queue;
+    std::vector<Atom *> atoms;
     while (fgets(line, sizeof(line), fptr)) {
         if (strncmp(line, "ATOM", 4) == 0 || strncmp(line, "HETATM", 6) == 0){
             Atom *atom = (Atom *)calloc(1, sizeof(Atom));
 
             if(!atom){
                 printf("Error during the allocation of the Atom structure!\n");
-                return atom_queue;
+                return atoms;
             }
 
             // Storing the record name
@@ -61,7 +61,6 @@ std::queue<Atom *> load_atom_queue_from_file(FILE *fptr){
 	    sscanf(line + 60, "%6f", &atom->temp);
 
 	    //Storing the segment id
-	    
 	    strncpy(atom->segment_id, line + 72, 4);
 	    atom->segment_id[5] = '\0';
 
@@ -70,25 +69,47 @@ std::queue<Atom *> load_atom_queue_from_file(FILE *fptr){
 	    atom->element_sym[3] = '\0';
 
 	    //Storing the charge 
-	    
 	    strncpy(atom->charge, line + 78, 2);
 	    atom->charge[3] = '\0';
 		
 	    //Load the atom in the queue
-	    atom_queue.push(atom);
+	    atoms.push_back(atom);
 
 	}
     }
 
-    return atom_queue;
+    return atoms;
 }
 
 
-void free_queue(std::queue<Atom *> queue){
-	while(!queue.empty()){
-		Atom *atom = queue.front();
-		queue.pop();
+std::vector<Atom *> get_alphas(std::vector<Atom *> v){
+	std::vector<Atom *> res;
 
-		free(atom);
+	for(Atom *atom: v){
+		if(strcasestr(atom->name, "CA")){
+			res.push_back(atom);
+		}
 	}
+
+	return res;
+}
+
+std::vector<std::pair<int, Atom *>> get_alphas_by_residues(std::vector<Atom *> v){
+	return ;
+}
+
+int **get_contact_map(std::vector<Atom *> alphas){
+	size_t num_el = alphas.size();
+
+	int contact_map[num_el][num_el];
+
+	return NULL;
+}
+
+
+void free_atoms_vector(std::vector<Atom *> v){
+    for (Atom *atom : v) {
+        free(atom);
+    }
+    v.clear();
 }

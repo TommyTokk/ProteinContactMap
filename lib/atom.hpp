@@ -12,5 +12,5 @@ typedef struct Atom{
     float temp; // Temperature factor
     char segment_id[5]; // Segment identifier
     char element_sym[3]; // Element symbol
-    char charge[3]; // Charge 
+    char charge[3]; // Charge
 }Atom;

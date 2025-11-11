@@ -12,11 +12,21 @@ int main(int argc, char const *argv[]){
         return EXIT_FAILURE;
     }
 
-    std::queue<Atom *> atoms = load_atom_queue_from_file(fptr);
+    std::vector<Atom *> atoms = load_atom_queue_from_file(fptr);
 
+    std::vector<Atom *> alphas = get_alphas(atoms);
+
+    std::vector<Atom *> alphas_by_residue = get_alphas_by_residues(atoms);
+
+    for(Atom *atom: alphas){
+        printf("%s | %d | (%f, %f, %f)\n", atom->name, atom->res_seq, atom->x, atom->y, atom->z);
+    }
+    //Insert the computation part
+
+    //Compute the distances
     
 
-    free_queue(atoms);
+    free_atoms_vector(atoms);
     fclose(fptr);
     return(EXIT_SUCCESS);
 }
