@@ -13,4 +13,5 @@ typedef struct Atom{
     char segment_id[5]; // Segment identifier
     char element_sym[3]; // Element symbol
     char charge[3]; // Charge
+    int model;
 }Atom;

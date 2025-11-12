@@ -1,7 +1,11 @@
 #include "lib/utils.hpp"
 
+
 int main(int argc, char const *argv[]){
-    if(argc == 1) return EXIT_FAILURE;
+    if(argc <= 1){
+        printf("[ERROR] USAGE: ./main <input_path> <output_dir_path\n");
+        return EXIT_FAILURE;
+    }
 
     const char *file_path = argv[1];
 
@@ -12,21 +16,24 @@ int main(int argc, char const *argv[]){
         return EXIT_FAILURE;
     }
 
-    std::vector<Atom *> atoms = load_atom_queue_from_file(fptr);
+    std::unordered_map<int, std::vector<Atom>>atoms = load_atoms_from_file(fptr);
 
-    std::vector<Atom *> alphas = get_alphas(atoms);
+    std::unordered_map<int, std::vector<Atom>> alphas = get_alphas(atoms);
 
-    std::vector<Atom *> alphas_by_residue = get_alphas_by_residues(atoms);
+    std::unordered_map<int, std::vector<std::vector<float>>> dm = get_residue_distances(alphas);
 
-    for(Atom *atom: alphas){
-        printf("%s | %d | (%f, %f, %f)\n", atom->name, atom->res_seq, atom->x, atom->y, atom->z);
+
+    for(const std::pair<int, std::vector<std::vector<float>>> t : dm){
+        int model = t.first;
+        printf("Model: %d\n", model);
     }
-    //Insert the computation part
+
+    
 
     //Compute the distances
     
 
-    free_atoms_vector(atoms);
+    //free_atoms_vector(atoms);
     fclose(fptr);
     return(EXIT_SUCCESS);
 }

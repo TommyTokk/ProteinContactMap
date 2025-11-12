@@ -3,9 +3,12 @@
 #include <string.h>
 #include "atom.hpp"
 #include <queue>
+#include <unordered_map>
+#include<math.h>
+#include <fstream>
+#include <iostream>
 
-std::vector<Atom *>load_atom_queue_from_file(FILE *fptr);
-std::vector<Atom *> get_alphas(std::vector<Atom *> v);
-std::vector<std::pair<int, Atom *>> get_alphas_by_residues(std::vector<Atom *> v);
-int **get_contact_map(std::vector<Atom *> alphas);
-void free_atoms_vector(std::vector<Atom *> queue);
+std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr);
+std::unordered_map<int, std::vector<Atom>> get_alphas(std::unordered_map<int, std::vector<Atom>> map);
+std::unordered_map<int, std::vector<std::vector<float>>> get_residue_distances(std::unordered_map<int, std::vector<Atom>> alphas);
+
