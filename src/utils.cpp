@@ -1,6 +1,7 @@
 #include "../lib/utils.hpp"
 
 
+
 std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr){
 	char line[81];
 	std::vector<Atom> atoms;
@@ -108,9 +109,10 @@ std::unordered_map<int, std::vector<Atom>> get_alphas(std::unordered_map<int, st
 
 std::unordered_map<int, std::vector<std::vector<float>>> get_residue_distances(std::unordered_map<int, std::vector<Atom>> alphas_map){
     std::unordered_map<int, std::vector<std::vector<float>>> res;
+	int model;
     
     for(const std::pair<int, std::vector<Atom>>t : alphas_map){
-        int model = t.first;
+        model = t.first;
         const std::vector<Atom>& alphas = t.second;
         size_t num_atoms = alphas.size();
 
@@ -133,10 +135,51 @@ std::unordered_map<int, std::vector<std::vector<float>>> get_residue_distances(s
     return res;
 }
 
-//std::string get_filename(const std::string& path) {
-//    size_t last_slash = path.find_last_of("/\\");
-//    if (last_slash != std::string::npos) {
-//        return path.substr(last_slash + 1);
-//    }
-//    return path;
-//}
+std::string get_filename(const char* path) {
+    std::string str_path(path);
+    size_t last_slash = str_path.find_last_of("/\\");
+    size_t last_dot = str_path.find_last_of(".");
+    
+    std::string filename = (last_slash != std::string::npos) 
+        ? str_path.substr(last_slash + 1) 
+        : str_path;
+    
+    if (last_dot != std::string::npos && last_dot > last_slash) {
+        filename = filename.substr(0, last_dot - (last_slash + 1));
+    }
+    
+    return filename;
+}
+
+void save_distance_matrix(const std::unordered_map<int, std::vector<std::vector<float>>> &dm, const char *output_dir, const std::string &pdb_filename){
+	// Create subdirectory: output_dir/pdb_filename/
+	std::string subdir = std::string(output_dir) + "/" + pdb_filename;
+	mkdir(subdir.c_str(), 0755);  // Creates directory if it doesn't exist
+
+	// Save each model's distance matrix to CSV
+	for(const auto &t : dm){
+		int model = t.first;
+		const std::vector<std::vector<float>>& distance_matrix = t.second;
+		
+		std::string output_path = subdir + "/" + pdb_filename + "_model_" + std::to_string(model) + ".csv";
+		
+		printf("Saving model %d to: %s\n", model, output_path.c_str());
+		save_csv(distance_matrix, output_path.c_str());
+	}
+}
+
+void save_csv(const std::vector<std::vector<float>> distance_matrix, const char *filepath) {
+    int fd = open(filepath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    if (fd < 0) {
+        perror("Error opening file");  // Shows actual error
+        fprintf(stderr, "Failed to open: %s\n", filepath);
+        return;
+    }
+	
+	for (long unsigned int i = 0; i < distance_matrix.size(); i++) {
+		for(long unsigned int j = 0; j < distance_matrix[i].size(); j++) {
+			dprintf(fd, "%f%s", distance_matrix[i][j], j == distance_matrix[i].size()-1 ? "\n" : ",");
+		}
+	}
+	return;
+}
