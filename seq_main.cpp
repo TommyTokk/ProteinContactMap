@@ -32,11 +32,10 @@ int main(int argc, char const *argv[]){
 
     const auto finish{std::chrono::steady_clock::now()};
     const std::chrono::duration<double> elapsed_seconds{finish - start};
-
-    //save_distance_matrix(dm, output_dir, pdb_filename);
-
-    std::cout<<elapsed_seconds.count()<<std::endl;
-
+    
+    std::cout<<std::to_string(elapsed_seconds.count()) + " (s)"<<std::endl;
+    
+    save_distance_matrix(dm, output_dir, pdb_filename);
 
     fclose(fptr);
     return EXIT_SUCCESS;

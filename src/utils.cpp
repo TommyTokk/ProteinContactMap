@@ -125,7 +125,44 @@ std::unordered_map<int, std::vector<std::vector<float>>> get_residue_distances(s
                     float y_diff = alphas[i].y - alphas[j].y;
                     float z_diff = alphas[i].z - alphas[j].z;
 
-                    distance_matrix[i][j] = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
+					float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
+
+					if(distance <= 8) distance_matrix[i][j] = 1;
+					else distance_matrix[i][j] = 0;
+
+                    
+                }
+            }
+            res[model] = std::move(distance_matrix);
+        }
+    }
+
+    return res;
+}
+
+std::unordered_map<int, std::vector<std::vector<float>>> get_residue_distances_omp(std::unordered_map<int, std::vector<Atom>> alphas_map, int n_threads){
+    std::unordered_map<int, std::vector<std::vector<float>>> res;
+	int model;
+    
+    for(const std::pair<int, std::vector<Atom>>t : alphas_map){
+        model = t.first;
+        const std::vector<Atom>& alphas = t.second;
+        size_t num_atoms = alphas.size();
+
+        if(num_atoms > 0){
+            std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
+
+			#pragma omp parallel for num_threads(n_threads)
+            for(size_t i = 0; i < num_atoms; i++){
+                for(size_t j = 0; j < num_atoms; j++){
+                    float x_diff = alphas[i].x - alphas[j].x;
+                    float y_diff = alphas[i].y - alphas[j].y;
+                    float z_diff = alphas[i].z - alphas[j].z;
+
+                    float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
+
+					if(distance <= 8) distance_matrix[i][j] = 1;
+					else distance_matrix[i][j] = 0;
                 }
             }
             res[model] = std::move(distance_matrix);
@@ -168,18 +205,28 @@ void save_distance_matrix(const std::unordered_map<int, std::vector<std::vector<
 	}
 }
 
-void save_csv(const std::vector<std::vector<float>> distance_matrix, const char *filepath) {
+void save_csv(const std::vector<std::vector<float>> &distance_matrix, const char *filepath) {
     int fd = open(filepath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (fd < 0) {
-        perror("Error opening file");  // Shows actual error
+        perror("Error opening file");
         fprintf(stderr, "Failed to open: %s\n", filepath);
         return;
     }
-	
-	for (long unsigned int i = 0; i < distance_matrix.size(); i++) {
-		for(long unsigned int j = 0; j < distance_matrix[i].size(); j++) {
-			dprintf(fd, "%f%s", distance_matrix[i][j], j == distance_matrix[i].size()-1 ? "\n" : ",");
-		}
-	}
-	return;
+
+    std::string row_buffer;
+    for (const auto &row : distance_matrix) {
+        // Pre-allocate row buffer, reserving extra space
+        row_buffer.clear();
+        row_buffer.reserve(row.size() * 16);
+        for (size_t j = 0; j < row.size(); j++) {
+            char float_buf[32];
+            int len = snprintf(float_buf, sizeof(float_buf), "%f", row[j]);
+            row_buffer.append(float_buf, len);
+            if (j < row.size() - 1)
+                row_buffer.push_back(',');
+        }
+        row_buffer.push_back('\n');
+        write(fd, row_buffer.data(), row_buffer.size());
+    }
+    close(fd);
 }
