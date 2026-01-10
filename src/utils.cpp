@@ -107,69 +107,47 @@ std::unordered_map<int, std::vector<Atom>> get_alphas(std::unordered_map<int, st
 }
 
 
-std::unordered_map<int, std::vector<std::vector<float>>> get_residue_distances(std::unordered_map<int, std::vector<Atom>> alphas_map){
-    std::unordered_map<int, std::vector<std::vector<float>>> res;
-	int model;
-    
-    for(const std::pair<int, std::vector<Atom>>t : alphas_map){
-        model = t.first;
-        const std::vector<Atom>& alphas = t.second;
-        size_t num_atoms = alphas.size();
+std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas) {
+    size_t num_atoms = alphas.size();
+    std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
 
-        if(num_atoms > 0){
-            std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
+    for (size_t i = 0; i < num_atoms; i++) {
+        for (size_t j = 0; j < num_atoms; j++) {
+            float x_diff = alphas[i].x - alphas[j].x;
+            float y_diff = alphas[i].y - alphas[j].y;
+            float z_diff = alphas[i].z - alphas[j].z;
 
-            for(size_t i = 0; i < num_atoms; i++){
-                for(size_t j = 0; j < num_atoms; j++){
-                    float x_diff = alphas[i].x - alphas[j].x;
-                    float y_diff = alphas[i].y - alphas[j].y;
-                    float z_diff = alphas[i].z - alphas[j].z;
+            float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
 
-					float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
-
-					if(distance <= 8) distance_matrix[i][j] = 1;
-					else distance_matrix[i][j] = 0;
-
-                    
-                }
-            }
-            res[model] = std::move(distance_matrix);
+            if (distance <= 8)
+                distance_matrix[i][j] = 1;
+            else
+                distance_matrix[i][j] = 0;
         }
     }
-
-    return res;
+    return distance_matrix;
 }
 
-std::unordered_map<int, std::vector<std::vector<float>>> get_residue_distances_omp(std::unordered_map<int, std::vector<Atom>> alphas_map, int n_threads){
-    std::unordered_map<int, std::vector<std::vector<float>>> res;
-	int model;
-    
-    for(const std::pair<int, std::vector<Atom>>t : alphas_map){
-        model = t.first;
-        const std::vector<Atom>& alphas = t.second;
-        size_t num_atoms = alphas.size();
+std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, int n_threads) {
+    size_t num_atoms = alphas.size();
+    std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
 
-        if(num_atoms > 0){
-            std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
+    #pragma omp parallel for num_threads(n_threads)
+    for (size_t i = 0; i < num_atoms; i++) {
+        for (size_t j = 0; j < num_atoms; j++) {
+            float x_diff = alphas[i].x - alphas[j].x;
+            float y_diff = alphas[i].y - alphas[j].y;
+            float z_diff = alphas[i].z - alphas[j].z;
 
-			#pragma omp parallel for num_threads(n_threads)
-            for(size_t i = 0; i < num_atoms; i++){
-                for(size_t j = 0; j < num_atoms; j++){
-                    float x_diff = alphas[i].x - alphas[j].x;
-                    float y_diff = alphas[i].y - alphas[j].y;
-                    float z_diff = alphas[i].z - alphas[j].z;
+            float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
 
-                    float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
-
-					if(distance <= 8) distance_matrix[i][j] = 1;
-					else distance_matrix[i][j] = 0;
-                }
-            }
-            res[model] = std::move(distance_matrix);
+            if (distance <= 8)
+                distance_matrix[i][j] = 1;
+            else
+                distance_matrix[i][j] = 0;
         }
     }
-
-    return res;
+    return distance_matrix;
 }
 
 std::string get_filename(const char* path) {
@@ -188,21 +166,16 @@ std::string get_filename(const char* path) {
     return filename;
 }
 
-void save_distance_matrix(const std::unordered_map<int, std::vector<std::vector<float>>> &dm, const char *output_dir, const std::string &pdb_filename){
-	// Create subdirectory: output_dir/pdb_filename/
-	std::string subdir = std::string(output_dir) + "/" + pdb_filename;
-	mkdir(subdir.c_str(), 0755);  // Creates directory if it doesn't exist
+void save_distance_matrix(std::vector<std::vector<float>> &dm, const char *output_dir, const std::string &pdb_filename) {
+    // Create subdirectory: output_dir/pdb_filename/
+    std::string subdir = std::string(output_dir) + "/" + pdb_filename;
+    mkdir(subdir.c_str(), 0755);  // Creates directory if it doesn't exist
 
-	// Save each model's distance matrix to CSV
-	for(const auto &t : dm){
-		int model = t.first;
-		const std::vector<std::vector<float>>& distance_matrix = t.second;
-		
-		std::string output_path = subdir + "/" + pdb_filename + "_model_" + std::to_string(model) + ".csv";
-		
-		printf("Saving model %d to: %s\n", model, output_path.c_str());
-		save_csv(distance_matrix, output_path.c_str());
-	}
+    // Output path: output_dir/pdb_filename/pdb_filename.csv
+    std::string output_path = subdir + "/" + pdb_filename + ".csv";
+
+    printf("Saving distance matrix to: %s\n", output_path.c_str());
+    save_csv(dm, output_path.c_str());
 }
 
 void save_csv(const std::vector<std::vector<float>> &distance_matrix, const char *filepath) {

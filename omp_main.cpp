@@ -27,16 +27,28 @@ int main(int argc, char const *argv[]){
 
     std::unordered_map<int, std::vector<Atom>> alphas = get_alphas(atoms);
 
-    const auto start{std::chrono::steady_clock::now()};
+    if(!alphas.empty()){
 
-    std::unordered_map<int, std::vector<std::vector<float>>> dm = get_residue_distances_omp(alphas, n_threads);
+        auto iterator = alphas.begin();
+        std::vector<Atom> alphas_vec = iterator->second;
 
-    const auto finish{std::chrono::steady_clock::now()};
-    const std::chrono::duration<double> elapsed_seconds{finish - start};
+        const auto start{std::chrono::steady_clock::now()};
+
+        std::vector<std::vector<float>> dm = get_residue_distances_omp(alphas_vec, n_threads);
+
+        const auto finish{std::chrono::steady_clock::now()};
+        const std::chrono::duration<double> elapsed_seconds{finish - start};
+        
+        std::cout<<std::to_string(n_threads) + " | " + std::to_string(elapsed_seconds.count()) + "(s)"<<std::endl;
+
+        save_distance_matrix(dm, output_dir, pdb_filename);
+    }else{
+        printf("[ERROR] No alpha carbon atoms found in the input file.\n");
+        fclose(fptr);
+        return EXIT_FAILURE;
+    }
+
     
-    std::cout<<std::to_string(n_threads) + " | " + std::to_string(elapsed_seconds.count()) + "(s)"<<std::endl;
-
-    save_distance_matrix(dm, output_dir, pdb_filename);
 
 
 
