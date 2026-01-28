@@ -1,10 +1,7 @@
 #include "../lib/utils.hpp"
 
-
-
 std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr){
 	char line[81];
-	std::vector<Atom> atoms;
 	int model = 1;
 	std::unordered_map<int, std::vector<Atom>> map;
 
@@ -80,6 +77,7 @@ std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr){
 			atom.model = model;
 
 			// Load the atom in the map
+            
 			map[model].push_back(atom);
 			
 		}
@@ -109,6 +107,7 @@ std::unordered_map<int, std::vector<Atom>> get_alphas(std::unordered_map<int, st
 
 std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas) {
     size_t num_atoms = alphas.size();
+    printf("Number of atoms: %ld\n", num_atoms);
     std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
 
     for (size_t i = 0; i < num_atoms; i++) {
@@ -128,13 +127,13 @@ std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas) 
     return distance_matrix;
 }
 
-std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, int n_threads) {
-    size_t num_atoms = alphas.size();
+std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, size_t start, size_t size, int n_threads) {
+    size_t num_atoms = size;
     std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
 
     #pragma omp parallel for num_threads(n_threads)
-    for (size_t i = 0; i < num_atoms; i++) {
-        for (size_t j = 0; j < num_atoms; j++) {
+    for (size_t i = start; i < num_atoms; i++) {
+        for (size_t j = start; j < num_atoms; j++) {
             float x_diff = alphas[i].x - alphas[j].x;
             float y_diff = alphas[i].y - alphas[j].y;
             float z_diff = alphas[i].z - alphas[j].z;
@@ -148,6 +147,46 @@ std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alph
         }
     }
     return distance_matrix;
+}
+
+std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom>& alphas, size_t starting_row, size_t count, int n_threads){
+    size_t num_atoms = alphas.size();
+    std::vector<std::vector<float>> distance_matrix(count, std::vector<float>(num_atoms));
+
+    #pragma omp parallel for num_threads(n_threads)
+    for(size_t i = 0; i < count; i++){ 
+        size_t global_row = starting_row + i;
+        
+        for(size_t c = 0; c < num_atoms; c++){
+            float x_diff = alphas[global_row].x - alphas[c].x;
+            float y_diff = alphas[global_row].y - alphas[c].y;
+            float z_diff = alphas[global_row].z - alphas[c].z;
+
+            float distance_sq = (x_diff*x_diff) + (y_diff*y_diff) + (z_diff*z_diff);
+
+            distance_matrix[i][c] = (distance_sq <= 64.0f) ? 1.0f : 0.0f;
+        }
+    }
+
+    return distance_matrix;
+}
+
+
+void get_processor_bounds(size_t total_elements, int num_processors, int my_rank, 
+                          size_t& start_index, size_t& count) {
+    
+    size_t base_count = total_elements / num_processors;
+    size_t remainder = total_elements % num_processors;
+
+    //Calculate the number of elements for this processor
+    if (my_rank < remainder) {
+        count = base_count + 1;
+    } else {
+        count = base_count;
+    }
+
+    // The offset is: (rank * base) + (how many 'extra' items appeared before me)
+    start_index = (my_rank * base_count) + std::min((size_t)my_rank, remainder);
 }
 
 std::string get_filename(const char* path) {

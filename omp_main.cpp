@@ -5,7 +5,7 @@
 
 int main(int argc, char const *argv[]){
     if(argc <= 3){
-        printf("[ERROR] USAGE: ./main <input_path> <output_dir_path>\n");
+        printf("[ERROR] USAGE: ./main <input_path> <output_dir_path> n_threads\n");
         return EXIT_FAILURE;
     }
 
@@ -34,7 +34,7 @@ int main(int argc, char const *argv[]){
 
         const auto start{std::chrono::steady_clock::now()};
 
-        std::vector<std::vector<float>> dm = get_residue_distances_omp(alphas_vec, n_threads);
+        std::vector<std::vector<float>> dm = get_residue_distances_omp(alphas_vec,0,alphas_vec.size(), n_threads);
 
         const auto finish{std::chrono::steady_clock::now()};
         const std::chrono::duration<double> elapsed_seconds{finish - start};
