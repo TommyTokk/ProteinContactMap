@@ -149,6 +149,36 @@ std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alph
     return distance_matrix;
 }
 
+std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas) {
+    size_t num_atoms = alphas.size();
+    std::vector<uint8_t> distance_vector(num_atoms * num_atoms);
+    
+    float cutoff_sq = 64.0f; 
+
+    for(size_t i = 0; i < num_atoms; i++) {
+        // Load Row Atom once (stays in register)
+        float xi = alphas[i].x;
+        float yi = alphas[i].y;
+        float zi = alphas[i].z;
+        
+        // Pre-calculate row offset
+        size_t row_offset = i * num_atoms;
+        
+
+        for(size_t j = 0; j < num_atoms; j++) {
+            float dx = xi - alphas[j].x;
+            float dy = yi - alphas[j].y;
+            float dz = zi - alphas[j].z;
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+
+            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq) ? 1 : 0;
+        }
+    }
+    
+    return distance_vector;
+}
+
 std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom>& alphas, size_t starting_row, size_t count, int n_threads){
     size_t num_atoms = alphas.size();
     std::vector<std::vector<float>> distance_matrix(count, std::vector<float>(num_atoms));
@@ -205,7 +235,7 @@ std::string get_filename(const char* path) {
     return filename;
 }
 
-void save_distance_matrix(std::vector<std::vector<float>> &dm, const char *output_dir, const std::string &pdb_filename) {
+/*void save_distance_matrix(std::vector<std::vector<float>> &dm, const char *output_dir, const std::string &pdb_filename) {
     // Create subdirectory: output_dir/pdb_filename/
     std::string subdir = std::string(output_dir) + "/" + pdb_filename;
     mkdir(subdir.c_str(), 0755);  // Creates directory if it doesn't exist
@@ -215,6 +245,41 @@ void save_distance_matrix(std::vector<std::vector<float>> &dm, const char *outpu
 
     printf("Saving distance matrix to: %s\n", output_path.c_str());
     save_csv(dm, output_path.c_str());
+}*/
+void save_distance_matrix(const std::vector<uint8_t>& dm, size_t num_atoms, 
+                         const char* output_dir, const std::string& pdb_filename) {
+    // Create subdirectory: output_dir/pdb_filename/
+    std::string subdir = std::string(output_dir) + "/" + pdb_filename;
+    mkdir(subdir.c_str(), 0755);  // Creates directory if it doesn't exist
+
+    // Output path: output_dir/pdb_filename/pdb_filename.csv
+    std::string output_path = subdir + "/" + pdb_filename + ".csv";
+
+    printf("Saving distance matrix to: %s\n", output_path.c_str());
+    
+    // Open file
+    std::ofstream file(output_path);
+    if (!file.is_open()) {
+        fprintf(stderr, "Error: Could not open file %s\n", output_path.c_str());
+        return;
+    }
+
+    // Write matrix row by row
+    for (size_t r = 0; r < num_atoms; r++) {
+        size_t row_offset = r * num_atoms;
+        
+        for (size_t c = 0; c < num_atoms; c++) {
+            file << (int)dm[row_offset + c];
+            
+            if (c < num_atoms - 1) {
+                file << ",";
+            }
+        }
+        file << "\n";
+    }
+    
+    file.close();
+    printf("Matrix saved successfully!\n");
 }
 
 void save_csv(const std::vector<std::vector<float>> &distance_matrix, const char *filepath) {

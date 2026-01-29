@@ -31,17 +31,19 @@ int main(int argc, char const *argv[]){
         auto iterator = alphas.begin();
 
         std::vector<Atom> alphas_vec = iterator->second;
+        int alphas_size = alphas_vec.size();
 
         const auto start{std::chrono::steady_clock::now()};
 
-        std::vector<std::vector<float>> dm = get_residue_distances(alphas_vec);
+        //std::vector<std::vector<float>> dm = get_residue_distances(alphas_vec);
+        std::vector<uint8_t> dm = get_residue_distances_opt(alphas_vec);
 
         const auto finish{std::chrono::steady_clock::now()};
         const std::chrono::duration<double> elapsed_seconds{finish - start};
         
-        std::cout<<std::to_string(elapsed_seconds.count()) + " (s)"<<std::endl;
+        std::cout<<std::to_string(elapsed_seconds.count()) + "(s)"<<std::endl;
         
-        save_distance_matrix(dm, output_dir, pdb_filename);
+        save_distance_matrix(dm, alphas_size, output_dir, pdb_filename);
 
     }else{
         printf("[ERROR] No alpha carbon atoms found in the input file.\n");
