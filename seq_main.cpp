@@ -35,8 +35,7 @@ int main(int argc, char const *argv[]){
 
         const auto start{std::chrono::steady_clock::now()};
 
-        //std::vector<std::vector<float>> dm = get_residue_distances(alphas_vec);
-        std::vector<uint8_t> dm = get_residue_distances_opt(alphas_vec);
+        //std::vector<uint8_t> dm = get_residue_distances_opt(alphas_vec);
 
         const auto finish{std::chrono::steady_clock::now()};
         const std::chrono::duration<double> elapsed_seconds{finish - start};

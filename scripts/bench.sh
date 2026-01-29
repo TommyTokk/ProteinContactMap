@@ -1,7 +1,7 @@
 #!/bin/bash
 
 total_time=0
-iterations=5
+iterations=100
 threads=64
 successful_runs=0
 

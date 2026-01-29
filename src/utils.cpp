@@ -127,28 +127,6 @@ std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas) 
     return distance_matrix;
 }
 
-std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, size_t start, size_t size, int n_threads) {
-    size_t num_atoms = size;
-    std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
-
-    #pragma omp parallel for num_threads(n_threads)
-    for (size_t i = start; i < num_atoms; i++) {
-        for (size_t j = start; j < num_atoms; j++) {
-            float x_diff = alphas[i].x - alphas[j].x;
-            float y_diff = alphas[i].y - alphas[j].y;
-            float z_diff = alphas[i].z - alphas[j].z;
-
-            float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
-
-            if (distance <= 8)
-                distance_matrix[i][j] = 1;
-            else
-                distance_matrix[i][j] = 0;
-        }
-    }
-    return distance_matrix;
-}
-
 std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas) {
     size_t num_atoms = alphas.size();
     std::vector<uint8_t> distance_vector(num_atoms * num_atoms);
@@ -178,6 +156,64 @@ std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas) 
     
     return distance_vector;
 }
+
+std::vector<uint8_t>get_residue_distances_soa(const std::vector<Atom>& alphas);
+
+std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, size_t start, size_t size, int n_threads) {
+    size_t num_atoms = size;
+    std::vector<std::vector<float>> distance_matrix(num_atoms, std::vector<float>(num_atoms));
+
+    #pragma omp parallel for num_threads(n_threads)
+    for (size_t i = start; i < num_atoms; i++) {
+        for (size_t j = start; j < num_atoms; j++) {
+            float x_diff = alphas[i].x - alphas[j].x;
+            float y_diff = alphas[i].y - alphas[j].y;
+            float z_diff = alphas[i].z - alphas[j].z;
+
+            float distance = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
+
+            if (distance <= 8)
+                distance_matrix[i][j] = 1;
+            else
+                distance_matrix[i][j] = 0;
+        }
+    }
+    return distance_matrix;
+}
+
+std::vector<uint8_t> get_residue_distances_omp_opt(const std::vector<Atom>& alphas, int n_threads) {
+    size_t num_atoms = alphas.size();
+    std::vector<uint8_t> distance_vector(num_atoms * num_atoms);
+    
+    float cutoff_sq = 64.0f; 
+
+    #pragma omp parallel for num_threads(n_threads)
+    for(size_t i = 0; i < num_atoms; i++) {
+        
+        float xi = alphas[i].x;
+        float yi = alphas[i].y;
+        float zi = alphas[i].z;
+        
+        // Pre-calculate row offset
+        size_t row_offset = i * num_atoms;
+        
+
+        for(size_t j = 0; j < num_atoms; j++) {
+            float dx = xi - alphas[j].x;
+            float dy = yi - alphas[j].y;
+            float dz = zi - alphas[j].z;
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+
+            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq) ? 1 : 0;
+        }
+    }
+    
+    return distance_vector;
+}
+
+
+
 
 std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom>& alphas, size_t starting_row, size_t count, int n_threads){
     size_t num_atoms = alphas.size();

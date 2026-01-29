@@ -13,13 +13,27 @@
 #include <unistd.h>
 #include <cstdio>
 
+typedef struct Model{
+    std::vector<float> X;
+    std::vector<float> Y;
+    std::vector<float> Z;
+
+    void resize(int n){
+        X.resize(n);
+        Y.resize(n);
+        Z.resize(n);
+    }
+}Model;
+
 std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr);
 std::unordered_map<int, std::vector<Atom>> get_alphas(std::unordered_map<int, std::vector<Atom>> map);
 
 std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas);
 std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas);
+std::vector<uint8_t>get_residue_distances_soa(const Model model);
 
 std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, size_t start, size_t size, int n_threads);
+std::vector<uint8_t> get_residue_distances_omp_opt(const std::vector<Atom>& alphas, int n_threads);
 
 std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom>& alphas, size_t starting_row, size_t count, int n_threads);
 
