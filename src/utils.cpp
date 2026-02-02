@@ -157,7 +157,60 @@ std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas) 
     return distance_vector;
 }
 
-std::vector<uint8_t>get_residue_distances_soa(const std::vector<Atom>& alphas);
+
+
+std::vector<uint8_t>get_residue_distances_soa(const Model& model, int size){
+    std::vector<uint8_t> distance_vector(size * size);
+    
+    float cutoff_sq = 64.0f;
+    for(size_t i = 0; i < size; i++) {
+        
+        float xi = model.X[i];
+        float yi = model.Y[i];
+        float zi = model.Z[i];
+        
+        uint8_t* row_ptr = &distance_vector[i * size];
+
+        for(size_t j = 0; j < size; j++) {
+            float dx = xi - model.X[j];
+            float dy = yi - model.Y[j];
+            float dz = zi - model.Z[j];
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+
+            row_ptr[j] = (dist_sq <= cutoff_sq);
+        }
+    }
+
+    return distance_vector;
+}
+
+std::vector<uint8_t>get_residue_distances_soaV2(const Model& model, int size){
+    std::vector<uint8_t> distance_vector(size * size);
+
+    
+    float cutoff_sq = 64.0f;
+    for(size_t i = 0; i < size; i++) {
+        
+        float xi = model.X[i];
+        float yi = model.Y[i];
+        float zi = model.Z[i];
+        
+        uint8_t* row_ptr = &distance_vector[i * size];
+
+        for(size_t j = i; j < size; j++) {
+            float dx = xi - model.X[j];
+            float dy = yi - model.Y[j];
+            float dz = zi - model.Z[j];
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+
+            row_ptr[j] = (dist_sq <= cutoff_sq);
+        }
+    }
+
+    return distance_vector;
+}
 
 std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, size_t start, size_t size, int n_threads) {
     size_t num_atoms = size;
@@ -205,14 +258,42 @@ std::vector<uint8_t> get_residue_distances_omp_opt(const std::vector<Atom>& alph
             
             float dist_sq = dx*dx + dy*dy + dz*dz;
 
-            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq) ? 1 : 0;
+            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq);
         }
     }
     
     return distance_vector;
 }
 
+std::vector<uint8_t> get_residue_distances_omp_soa(const Model& model, int size, int n_threads){
+    std::vector<uint8_t> distance_vector(size * size);
 
+    
+    float cutoff_sq = 64.0f;
+
+    #pragma omp parallel for num_threads(n_threads) schedule(dynamic)
+    for(size_t i = 0; i < size; i++) {
+        
+        float xi = model.X[i];
+        float yi = model.Y[i];
+        float zi = model.Z[i];
+        
+        uint8_t* row_ptr = &distance_vector[i * size];
+
+        #pragma omp simd
+        for(size_t j = i; j < size; j++) {
+            float dx = xi - model.X[j];
+            float dy = yi - model.Y[j];
+            float dz = zi - model.Z[j];
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+
+            row_ptr[j] = (dist_sq <= cutoff_sq);
+        }
+    }
+
+    return distance_vector;
+}
 
 
 std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom>& alphas, size_t starting_row, size_t count, int n_threads){
@@ -235,6 +316,35 @@ std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom
     }
 
     return distance_matrix;
+}
+
+std::vector<uint8_t> get_residue_distances_mpi_soa(const Model& model, int size, size_t starting_row, size_t count, int n_threads){
+    std::vector<uint8_t> distance_vector(count * size);
+    
+    float cutoff_sq = 64.0f;
+
+    #pragma omp parallel for num_threads(n_threads)
+    for(size_t i = starting_row; i < count; i++){
+        size_t global_row = starting_row + i;
+        
+        float xi = model.X[global_row];
+        float yi = model.Y[global_row];
+        float zi = model.Z[global_row];
+        
+        size_t row_offset = i * size;
+        
+        #pragma omp simd
+        for(size_t j = i; j < size; j++){
+            float dx = xi - model.X[j];
+            float dy = yi - model.Y[j];
+            float dz = zi - model.Z[j];
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq);
+        }
+    }
+
+    return distance_vector;
 }
 
 

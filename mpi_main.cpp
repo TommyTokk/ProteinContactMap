@@ -37,6 +37,11 @@ int main(int argc, char const **argv){
         
     }
 
+    double service_start, service_end, service_time;
+    double parallel_start, parallel_end, parallel_time;
+    
+    service_start = MPI_Wtime();
+
     std::vector<int> counts(n_procs), starts(n_procs);
     
     int alphas_size;
@@ -83,6 +88,15 @@ int main(int argc, char const **argv){
     //Broadcast the elements
     MPI_Bcast(alphas_vec.data(), alphas_size, MPI_ATOM, 0, MPI_COMM_WORLD);
 
+    // Create Model with SOA layout
+    Model m;
+    m.resize(alphas_size);
+    for(int i = 0; i < alphas_size; i++){
+        m.X[i] = alphas_vec[i].x;
+        m.Y[i] = alphas_vec[i].y;
+        m.Z[i] = alphas_vec[i].z;
+    }
+
     //Broadcasting the counts
     MPI_Bcast(counts.data(), n_procs, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -97,31 +111,16 @@ int main(int argc, char const **argv){
     std::vector<int> displs(n_procs);
     std::exclusive_scan(counts.begin(), counts.end(), displs.begin(), 0);
 
+    service_end = MPI_Wtime();
+    parallel_start = MPI_Wtime();
+
     printf("Rank: %d, starting row: %d, count: %d, end row: %d\n", rank, my_start, my_count, (my_start+my_count));
 
-    std::vector<std::vector<float>> local_dm = get_residue_distances_mpi(alphas_vec, my_start, my_count, n_threads);
-
+    std::vector<uint8_t> local_dm = get_residue_distances_mpi_soa(m, alphas_size, my_start, my_count, n_threads);
 
     int nz = 0;
-    for(const auto& arr : local_dm){
-        for(const auto el: arr){
-            if(el > 0) nz++;
-        }
-    }
-
-    printf("Rank: %d, non zero el pre: %d\n", rank, nz);
-
-    // Flatten the partial results
-    std::vector<float> flattened;
-    flattened.reserve(my_count * alphas_size);
-
-    for(const auto& arr : local_dm){
-        flattened.insert(flattened.end(), arr.begin(), arr.end());
-    }
-
-    nz = 0;
-    for(auto el : flattened){
-        if(el > 0) nz += 1;
+    for(auto el : local_dm){
+        if(el > 0) nz++;
     }
 
     printf("Rank: %d, non zero el: %d\n", rank, nz);
@@ -129,7 +128,6 @@ int main(int argc, char const **argv){
     // Recalculate the counts
     std::vector<int> flat_counts(n_procs);
     for (int i = 0; i < flat_counts.size(); i++){
-        printf("%d, %d\n", counts[i], alphas_size);
         flat_counts[i] = counts[i]*alphas_size;
     }
 
@@ -139,7 +137,7 @@ int main(int argc, char const **argv){
                    flat_displs.begin(), 0);
 
     // Gather the data
-    std::vector<float> all_results;
+    std::vector<uint8_t> all_results;
     if(rank == 0){
         int total = flat_displs[n_procs-1] + flat_counts[n_procs-1];
         all_results.resize(total);
@@ -147,20 +145,45 @@ int main(int argc, char const **argv){
     }
 
     MPI_Gatherv(
-        flattened.data(), 
+        local_dm.data(), 
         flat_counts[rank], 
-        MPI_FLOAT, 
+        MPI_UNSIGNED_CHAR, 
         rank == 0? all_results.data() : nullptr, 
         flat_counts.data(), 
         flat_displs.data(), 
-        MPI_FLOAT, 
+        MPI_UNSIGNED_CHAR, 
         0, 
         MPI_COMM_WORLD
     );
 
-    // Rebuild the data
+    parallel_end = MPI_Wtime();
+
+    service_time = service_end - service_start;
+    parallel_time = parallel_end - parallel_start;
+
     if(rank == 0){
-        int total_atoms = alphas_size;  // 10510
+        printf("\n=== Timing Results ===\n");
+        printf("Service time: %.6f(s)\n", service_time);
+        printf("Parallel time: %.6f(s)\n", parallel_time);
+        printf("Total time: %.6f(s)\n", service_time + parallel_time);
+        
+        // Amdahl's Law calculations
+        double f_serial = service_time / (service_time + parallel_time);
+        double f_parallel = parallel_time / (service_time + parallel_time);
+        double theoretical_speedup = 1.0 / (f_serial + f_parallel / (n_procs * n_threads));
+        double efficiency = (theoretical_speedup / (n_procs * n_threads)) * 100.0;
+        
+        printf("Serial fraction: %.4f\n", f_serial);
+        printf("Parallel fraction: %.4f\n", f_parallel);
+        printf("Total parallelism: %d (procs) x %d (threads) = %d\n", n_procs, n_threads, n_procs * n_threads);
+        printf("Theoretical max speedup (Amdahl): %.2fx\n", theoretical_speedup);
+        printf("Efficiency: %.2f%%\n", efficiency);
+        printf("======================\n\n");
+    }
+
+    // Save the data
+    if(rank == 0){
+        int total_atoms = alphas_size;
         
         // Verify size
         if(all_results.size() != total_atoms * total_atoms){
@@ -169,18 +192,9 @@ int main(int argc, char const **argv){
             MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
         }
         
-        // Rebuild the matrix from flattened row-major data
-        std::vector<std::vector<float>> distance_matrix(total_atoms, std::vector<float>(total_atoms));
-        
-        for(int row = 0; row < total_atoms; row++){
-            for(int col = 0; col < total_atoms; col++){
-                distance_matrix[row][col] = all_results[row * total_atoms + col];
-            }
-        }
-        
-        // Save the matrix
-        save_distance_matrix(distance_matrix, output_dir, pdb_filename);
-}
+        // Save the matrix directly (already in flat row-major format)
+        //save_distance_matrix(all_results, total_atoms, output_dir, pdb_filename);
+    }
 
     
 

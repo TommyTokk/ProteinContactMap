@@ -1,8 +1,8 @@
 #!/bin/bash
 
 total_time=0
-iterations=100
-threads=64
+iterations=500
+threads=32
 successful_runs=0
 
 for ((i = 0 ; i < iterations ; i++)); do
@@ -23,7 +23,7 @@ for ((i = 0 ; i < iterations ; i++)); do
     # Add to the running total
     total_time=$(echo "$total_time + $exec_time" | bc -l)
     successful_runs=$((successful_runs + 1))
-    
+    echo "$exec_time" 
     # Optional: show progress
     if (( (i + 1) % 100 == 0 )); then
         echo "Completed $((i+1))/$iterations iterations..."

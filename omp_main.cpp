@@ -4,10 +4,17 @@
 
 
 int main(int argc, char const *argv[]){
+    double service_start, service_end, service_time;
+    double parallel_start, parallel_end, parallel_time;
+
+    service_start = omp_get_wtime(); 
+
     if(argc <= 3){
         printf("[ERROR] USAGE: ./main <input_path> <output_dir_path> n_threads\n");
         return EXIT_FAILURE;
     }
+
+
 
     const char *file_path = argv[1];
     const char *output_dir = argv[2];
@@ -34,15 +41,24 @@ int main(int argc, char const *argv[]){
 
         int alphas_size = alphas_vec.size();
 
-        const auto start{std::chrono::steady_clock::now()};
+        Model m;
+
+        m.resize(alphas_size);
+
+        for(int i = 0; i < alphas_size; i++){
+            m.X[i] = alphas_vec[i].x;
+            m.Y[i] = alphas_vec[i].y;
+            m.Z[i] = alphas_vec[i].z;
+        }
+
+        service_end = omp_get_wtime();
+        parallel_start = omp_get_wtime();
 
         //std::vector<std::vector<float>> dm = get_residue_distances_omp(alphas_vec,0,alphas_vec.size(), n_threads);
-        std::vector<uint8_t> dm = get_residue_distances_omp_opt(alphas_vec, n_threads);
+        //std::vector<uint8_t> dm = get_residue_distances_omp_opt(alphas_vec, n_threads);
+        std::vector<uint8_t> dm = get_residue_distances_omp_soa(m, alphas_size, n_threads);
 
-        const auto finish{std::chrono::steady_clock::now()};
-        const std::chrono::duration<double> elapsed_seconds{finish - start};
-        
-        std::cout<<std::to_string(n_threads) + "|" + std::to_string(elapsed_seconds.count()) + "(s)"<<std::endl;
+        parallel_end = omp_get_wtime();
 
         //save_distance_matrix(dm, alphas_size, output_dir, pdb_filename);
     }else{
@@ -50,6 +66,20 @@ int main(int argc, char const *argv[]){
         fclose(fptr);
         return EXIT_FAILURE;
     }
+
+    service_time = service_end - service_start;
+    parallel_time = parallel_end - parallel_start;
+
+    double total_time = service_time + parallel_time;
+
+    double lb = service_time + (parallel_time/n_threads);
+    double ub = total_time/lb;
+
+    printf("Service time: %.6f(s)\n", service_time);
+    printf("Parallel time: %.6f(s)\n", parallel_time);
+    printf("Lower bound time: %.6f(s)\n", lb);
+    printf("Total time: %.6f(s)\n", total_time);
+    printf("Upper bound: %.6f\n", ub);
 
     
 

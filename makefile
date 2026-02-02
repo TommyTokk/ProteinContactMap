@@ -2,7 +2,7 @@
 CXX = g++
 MPICXX = /usr/local/openmpi/bin/mpic++
 MPIRUN = /usr/local/openmpi/bin/mpirun
-CXXFLAGS = -std=c++20 -Wall -O3
+CXXFLAGS = -std=c++20 -Wall -O3  -march=native -fopt-info-vec-optimized
 OMPFLAGS = -fopenmp
 INCLUDES = -I.
 
