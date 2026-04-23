@@ -13,7 +13,7 @@ std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr){
 		}
 
 		if (strncmp(line, "ATOM", 4) == 0 || strncmp(line, "HETATM", 6) == 0){
-			Atom atom;
+			Atom atom = {};
 
 			// Storing the record name
 			strncpy(atom.record_name, line + 0, 6);
@@ -24,7 +24,7 @@ std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr){
 
 			// Storing the name
 			strncpy(atom.name, line + 13, 4);
-			atom.name[5] = '\0';
+			atom.name[4] = '\0';
 
 			// Storing the alternate locator
 			strncpy(atom.alternate_locator_indicator, line + 16, 1);
@@ -32,18 +32,18 @@ std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr){
 
 			// Storing the name of the residue
 			strncpy(atom.residue_name, line + 17, 3);
-			atom.residue_name[4] = '\0';
+			atom.residue_name[3] = '\0';
 
 			// Storing the chain ID
 			strncpy(atom.chain_id, line + 21, 1);
-			atom.chain_id[2] = '\0';
+			atom.chain_id[1] = '\0';
 
 			// Storing the residue sequence number
 			sscanf(line + 22, "%4d", &atom.res_seq);
 
 			// Storing the code for insertion of the residues
 			strncpy(atom.code_residue_insert, line + 26, 1);
-			atom.code_residue_insert[2] = '\0';
+			atom.code_residue_insert[1] = '\0';
 
 			// Storing the coordinates
 			// Storing the x coordinate
@@ -63,15 +63,15 @@ std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr){
 
 			// Storing the segment id
 			strncpy(atom.segment_id, line + 72, 4);
-			atom.segment_id[5] = '\0';
+			atom.segment_id[4] = '\0';
 
 			// Storing the element symbol
 			strncpy(atom.element_sym, line + 76, 2);
-			atom.element_sym[3] = '\0';
+			atom.element_sym[2] = '\0';
 
 			// Storing the charge
 			strncpy(atom.charge, line + 78, 2);
-			atom.charge[3] = '\0';
+			atom.charge[1] = '\0';
 
 			// Storing the model info
 			atom.model = model;
@@ -127,6 +127,41 @@ std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas) 
     return distance_matrix;
 }
 
+std::vector<uint8_t> get_residue_distances_seq_inj(const Model& model, int size){
+    std::vector<uint8_t> distance_vector(size * size);
+    
+    float cutoff_sq = 64.0f;
+    
+    for(size_t i = 0; i < size; i++) {
+        float xi = model.X[i];
+        float yi = model.Y[i];
+        float zi = model.Z[i];
+        
+        distance_vector[i * size + i] = 1;
+        
+        for(size_t j = 0; j < size; j++) {
+            float dx = xi - model.X[j];
+            float dy = yi - model.Y[j];
+            float dz = zi - model.Z[j];
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+
+            //Useless code to increase the execution time
+            for(int z = 0; z < N_ITERATIONS; z++){
+                dist_sq += 0.000001f;
+                dist_sq -= 0.000001f;
+            }
+
+
+            uint8_t contact = (dist_sq <= cutoff_sq);
+            
+            distance_vector[i * size + j] = contact;
+        }
+    }
+    
+    return distance_vector;
+}
+
 std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas) {
     size_t num_atoms = alphas.size();
     std::vector<uint8_t> distance_vector(num_atoms * num_atoms);
@@ -150,7 +185,11 @@ std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas) 
             
             float dist_sq = dx*dx + dy*dy + dz*dz;
 
-            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq) ? 1 : 0;
+            if (dist_sq <= cutoff_sq) {
+                distance_vector[row_offset + j] = 1;
+            } else {
+                distance_vector[row_offset + j] = 0;
+            }
         }
     }
     
@@ -185,30 +224,30 @@ std::vector<uint8_t>get_residue_distances_soa(const Model& model, int size){
     return distance_vector;
 }
 
-std::vector<uint8_t>get_residue_distances_soaV2(const Model& model, int size){
+std::vector<uint8_t> get_residue_distances_soaV2(const Model& model, int size){
     std::vector<uint8_t> distance_vector(size * size);
-
     
     float cutoff_sq = 64.0f;
+    
     for(size_t i = 0; i < size; i++) {
-        
         float xi = model.X[i];
         float yi = model.Y[i];
         float zi = model.Z[i];
         
-        uint8_t* row_ptr = &distance_vector[i * size];
-
-        for(size_t j = i; j < size; j++) {
+        distance_vector[i * size + i] = 1;
+        
+        for(size_t j = 0; j < size; j++) {
             float dx = xi - model.X[j];
             float dy = yi - model.Y[j];
             float dz = zi - model.Z[j];
             
             float dist_sq = dx*dx + dy*dy + dz*dz;
-
-            row_ptr[j] = (dist_sq <= cutoff_sq);
+            uint8_t contact = (dist_sq <= cutoff_sq);
+            
+            distance_vector[i * size + j] = contact;
         }
     }
-
+    
     return distance_vector;
 }
 
@@ -267,31 +306,67 @@ std::vector<uint8_t> get_residue_distances_omp_opt(const std::vector<Atom>& alph
 
 std::vector<uint8_t> get_residue_distances_omp_soa(const Model& model, int size, int n_threads){
     std::vector<uint8_t> distance_vector(size * size);
-
     
     float cutoff_sq = 64.0f;
-
-    #pragma omp parallel for num_threads(n_threads) schedule(dynamic)
+    
+    #pragma omp parallel for num_threads(n_threads) schedule(static)
     for(size_t i = 0; i < size; i++) {
-        
         float xi = model.X[i];
         float yi = model.Y[i];
         float zi = model.Z[i];
         
-        uint8_t* row_ptr = &distance_vector[i * size];
+
+        size_t row_offset = i * size;
 
         #pragma omp simd
-        for(size_t j = i; j < size; j++) {
+        for(size_t j = 0; j < size; j++) {
+            float dx = xi - model.X[j];
+            float dy = yi - model.Y[j];
+            float dz = zi - model.Z[j];
+            
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+            
+
+            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq);
+        }
+    }
+    
+    return distance_vector;
+}
+
+std::vector<uint8_t> get_residue_distances_omp_inj(const Model& model, int size, int n_threads){
+    std::vector<uint8_t> distance_vector(size * size);
+    
+    float cutoff_sq = 64.0f;
+    
+    #pragma omp parallel for num_threads(n_threads) schedule(static)
+    for(size_t i = 0; i < size; i++) {
+        float xi = model.X[i];
+        float yi = model.Y[i];
+        float zi = model.Z[i];
+        
+
+        size_t row_offset = i * size;
+
+        #pragma omp simd
+        for(size_t j = 0; j < size; j++) {
             float dx = xi - model.X[j];
             float dy = yi - model.Y[j];
             float dz = zi - model.Z[j];
             
             float dist_sq = dx*dx + dy*dy + dz*dz;
 
-            row_ptr[j] = (dist_sq <= cutoff_sq);
+            //Useless code to increase the execution time
+            for(int z = 0; z < N_ITERATIONS; z++){
+                dist_sq += 0.000001f;
+                dist_sq -= 0.000001f;
+            }
+            
+
+            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq);
         }
     }
-
+    
     return distance_vector;
 }
 
@@ -319,30 +394,74 @@ std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom
 }
 
 std::vector<uint8_t> get_residue_distances_mpi_soa(const Model& model, int size, size_t starting_row, size_t count, int n_threads){
-    std::vector<uint8_t> distance_vector(count * size);
+    std::vector<uint8_t> distance_vector(count * size, 0); 
     
     float cutoff_sq = 64.0f;
 
-    #pragma omp parallel for num_threads(n_threads)
-    for(size_t i = starting_row; i < count; i++){
-        size_t global_row = starting_row + i;
-        
-        float xi = model.X[global_row];
-        float yi = model.Y[global_row];
-        float zi = model.Z[global_row];
-        
-        size_t row_offset = i * size;
-        
-        #pragma omp simd
-        for(size_t j = i; j < size; j++){
-            float dx = xi - model.X[j];
-            float dy = yi - model.Y[j];
-            float dz = zi - model.Z[j];
+    #pragma omp parallel num_threads(n_threads)
+    {
+
+        #pragma omp for
+        for(size_t i = 0; i < count; i++){
+            size_t global_row = starting_row + i;
             
-            float dist_sq = dx*dx + dy*dy + dz*dz;
-            distance_vector[row_offset + j] = (dist_sq <= cutoff_sq);
+            float xi = model.X[global_row];
+            float yi = model.Y[global_row];
+            float zi = model.Z[global_row];
+            
+            size_t row_offset = i * size;
+            
+            #pragma omp simd
+            for(size_t j = 0; j < size; j++){
+                float dx = xi - model.X[j];
+                float dy = yi - model.Y[j];
+                float dz = zi - model.Z[j];
+                
+                float dist_sq = dx*dx + dy*dy + dz*dz;
+                distance_vector[row_offset + j] = (dist_sq <= cutoff_sq);
+            }
         }
     }
+    
+
+    return distance_vector;
+}
+
+std::vector<uint8_t> get_residue_distances_mpi_inj(const Model& model, int size, size_t starting_row, size_t count, int n_threads){
+    std::vector<uint8_t> distance_vector(count * size, 0); 
+    
+    float cutoff_sq = 64.0f;
+
+    #pragma omp parallel num_threads(n_threads)
+    {
+
+        #pragma omp for
+        for(size_t i = 0; i < count; i++){
+            size_t global_row = starting_row + i;
+            
+            float xi = model.X[global_row];
+            float yi = model.Y[global_row];
+            float zi = model.Z[global_row];
+            
+            size_t row_offset = i * size;
+            
+            #pragma omp simd
+            for(size_t j = 0; j < size; j++){
+                float dx = xi - model.X[j];
+                float dy = yi - model.Y[j];
+                float dz = zi - model.Z[j];
+
+                for(int z = 0; z < N_ITERATIONS; z++){
+                    dx += 0.000001f;
+                    dx -= 0.000001f;
+                }
+                
+                float dist_sq = dx*dx + dy*dy + dz*dz;
+                distance_vector[row_offset + j] = (dist_sq <= cutoff_sq);
+            }
+        }
+    }
+    
 
     return distance_vector;
 }

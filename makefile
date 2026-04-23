@@ -2,7 +2,7 @@
 CXX = g++
 MPICXX = /usr/local/openmpi/bin/mpic++
 MPIRUN = /usr/local/openmpi/bin/mpirun
-CXXFLAGS = -std=c++20 -Wall -O3  -march=native -fopt-info-vec-optimized
+CXXFLAGS = -std=c++20 -Wall -O3 -march=native -fopt-info-vec-optimized
 OMPFLAGS = -fopenmp
 INCLUDES = -I.
 
@@ -35,10 +35,10 @@ $(BIN_DIR) $(BUILD_DIR):
 
 # Sequential version
 $(UTILS_OBJ): $(UTILS_SRC) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(OMPFLAGS) $(INCLUDES) -c $< -o $@
 
 $(SEQ_EXEC): seq_main.cpp $(UTILS_OBJ) | $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ -o $@
+	$(CXX) $(CXXFLAGS) $(OMPFLAGS) $(INCLUDES) $^ -o $@
 
 # OpenMP version
 $(UTILS_OMP_OBJ): $(UTILS_SRC) | $(BUILD_DIR)

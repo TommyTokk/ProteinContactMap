@@ -4,10 +4,7 @@
 
 
 int main(int argc, char const *argv[]){
-    double service_start, service_end, service_time;
     double parallel_start, parallel_end, parallel_time;
-
-    service_start = omp_get_wtime(); 
 
     if(argc <= 3){
         printf("[ERROR] USAGE: ./main <input_path> <output_dir_path> n_threads\n");
@@ -50,13 +47,12 @@ int main(int argc, char const *argv[]){
             m.Y[i] = alphas_vec[i].y;
             m.Z[i] = alphas_vec[i].z;
         }
-
-        service_end = omp_get_wtime();
         parallel_start = omp_get_wtime();
 
         //std::vector<std::vector<float>> dm = get_residue_distances_omp(alphas_vec,0,alphas_vec.size(), n_threads);
         //std::vector<uint8_t> dm = get_residue_distances_omp_opt(alphas_vec, n_threads);
-        std::vector<uint8_t> dm = get_residue_distances_omp_soa(m, alphas_size, n_threads);
+        //std::vector<uint8_t> dm = get_residue_distances_omp_soa(m, alphas_size, n_threads);
+        std::vector<uint8_t> dm = get_residue_distances_omp_inj(m, alphas_size, n_threads);
 
         parallel_end = omp_get_wtime();
 
@@ -67,21 +63,10 @@ int main(int argc, char const *argv[]){
         return EXIT_FAILURE;
     }
 
-    service_time = service_end - service_start;
     parallel_time = parallel_end - parallel_start;
 
-    double total_time = service_time + parallel_time;
+    printf("alg-time | %.10f | s\n", parallel_time);
 
-    double lb = service_time + (parallel_time/n_threads);
-    double ub = total_time/lb;
-
-    printf("Service time: %.6f(s)\n", service_time);
-    printf("Parallel time: %.6f(s)\n", parallel_time);
-    printf("Lower bound time: %.6f(s)\n", lb);
-    printf("Total time: %.6f(s)\n", total_time);
-    printf("Upper bound: %.6f\n", ub);
-
-    
 
 
 

@@ -17,7 +17,8 @@
 #include <memory>
 #include <omp.h>
 
-constexpr int BLOCK_SIZE = 256; 
+constexpr int BLOCK_SIZE = 256;
+const int N_ITERATIONS = 100;
 
 typedef struct Model{
     std::vector<float> X;
@@ -38,14 +39,18 @@ std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas);
 std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas);
 std::vector<uint8_t>get_residue_distances_soa(const Model& model, int size);
 std::vector<uint8_t>get_residue_distances_soaV2(const Model& model, int size);
+std::vector<uint8_t> get_residue_distances_seq_inj(const Model& model, int size);
 
 std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, size_t start, size_t size, int n_threads);
 std::vector<uint8_t> get_residue_distances_omp_opt(const std::vector<Atom>& alphas, int n_threads);
 std::vector<uint8_t> get_residue_distances_omp_soa(const Model& model, int size, int n_threads);
+std::vector<uint8_t> get_residue_distances_omp_inj(const Model& model, int size, int n_threads);
+
 
 
 std::vector<std::vector<float>> get_residue_distances_mpi(const std::vector<Atom>& alphas, size_t starting_row, size_t count, int n_threads);
 std::vector<uint8_t> get_residue_distances_mpi_soa(const Model& model, int size, size_t starting_row, size_t count, int n_threads);
+std::vector<uint8_t> get_residue_distances_mpi_inj(const Model& model, int size, size_t starting_row, size_t count, int n_threads);
 
 void get_processor_bounds(size_t total_elements, int num_processors, int my_rank, size_t& start_index, size_t& count);
 std::string get_filename(const char* path);

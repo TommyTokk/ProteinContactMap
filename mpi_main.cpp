@@ -12,10 +12,8 @@ int main(int argc, char const **argv){
     //MPI init
     MPI_Init(&argc, (char***)&argv);
 
-    // Create MPI datatype for Atom struct
-    MPI_Datatype MPI_ATOM;
-    MPI_Type_contiguous(sizeof(Atom), MPI_BYTE, &MPI_ATOM);
-    MPI_Type_commit(&MPI_ATOM);
+    //Arrays
+
 
     //Getting the number of proces
     int n_procs, rank;
@@ -30,11 +28,8 @@ int main(int argc, char const **argv){
     const int n_threads = atoi(argv[3]);
 
     if(argc <= 3){
-        if(!rank){
-            printf("[ERROR] USAGE: ./main <input_path> <output_dir_path> n_threads\n");
-            return EXIT_FAILURE;
-        }
-        
+        if(rank == 0) printf("[ERROR] USAGE: ./main <input_path> <output_dir_path> n_threads\n");
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
     double service_start, service_end, service_time;
@@ -47,7 +42,7 @@ int main(int argc, char const **argv){
     int alphas_size;
     std::string pdb_filename;
 
-    if(rank == 0){ 
+    if(rank == 0){ // Only the root process loads the data
         FILE *fptr = fopen(file_path, "r");
         if (!fptr) {
             printf("[ERROR] Cannot open file\n");
@@ -82,20 +77,24 @@ int main(int argc, char const **argv){
     //Broadcasting the number of elements in the array
     MPI_Bcast(&alphas_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    alphas_vec.resize(alphas_size);
-
-
-    //Broadcast the elements
-    MPI_Bcast(alphas_vec.data(), alphas_size, MPI_ATOM, 0, MPI_COMM_WORLD);
-
     // Create Model with SOA layout
     Model m;
     m.resize(alphas_size);
-    for(int i = 0; i < alphas_size; i++){
-        m.X[i] = alphas_vec[i].x;
-        m.Y[i] = alphas_vec[i].y;
-        m.Z[i] = alphas_vec[i].z;
+
+    if (rank == 0) {
+        for(int i = 0; i < alphas_size; i++){
+            m.X[i] = alphas_vec[i].x;
+            m.Y[i] = alphas_vec[i].y;
+            m.Z[i] = alphas_vec[i].z;
+        }
     }
+
+    parallel_start = MPI_Wtime();
+
+    // Broadcast the Coordinate vectors (SOA)
+    MPI_Bcast(m.X.data(), alphas_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(m.Y.data(), alphas_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(m.Z.data(), alphas_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
     //Broadcasting the counts
     MPI_Bcast(counts.data(), n_procs, MPI_INT, 0, MPI_COMM_WORLD);
@@ -110,20 +109,16 @@ int main(int argc, char const **argv){
     //Calculate the disposals
     std::vector<int> displs(n_procs);
     std::exclusive_scan(counts.begin(), counts.end(), displs.begin(), 0);
+    
 
-    service_end = MPI_Wtime();
-    parallel_start = MPI_Wtime();
+    //std::vector<uint8_t> local_dm = get_residue_distances_mpi_soa(m, alphas_size, my_start, my_count, n_threads);
 
-    printf("Rank: %d, starting row: %d, count: %d, end row: %d\n", rank, my_start, my_count, (my_start+my_count));
-
-    std::vector<uint8_t> local_dm = get_residue_distances_mpi_soa(m, alphas_size, my_start, my_count, n_threads);
+    std::vector<uint8_t> local_dm = get_residue_distances_mpi_inj(m, alphas_size, my_start, my_count, n_threads);
 
     int nz = 0;
     for(auto el : local_dm){
         if(el > 0) nz++;
     }
-
-    printf("Rank: %d, non zero el: %d\n", rank, nz);
 
     // Recalculate the counts
     std::vector<int> flat_counts(n_procs);
@@ -145,7 +140,7 @@ int main(int argc, char const **argv){
     }
 
     MPI_Gatherv(
-        local_dm.data(), 
+        flat_counts[rank] > 0 ? local_dm.data() : nullptr, 
         flat_counts[rank], 
         MPI_UNSIGNED_CHAR, 
         rank == 0? all_results.data() : nullptr, 
@@ -161,25 +156,6 @@ int main(int argc, char const **argv){
     service_time = service_end - service_start;
     parallel_time = parallel_end - parallel_start;
 
-    if(rank == 0){
-        printf("\n=== Timing Results ===\n");
-        printf("Service time: %.6f(s)\n", service_time);
-        printf("Parallel time: %.6f(s)\n", parallel_time);
-        printf("Total time: %.6f(s)\n", service_time + parallel_time);
-        
-        // Amdahl's Law calculations
-        double f_serial = service_time / (service_time + parallel_time);
-        double f_parallel = parallel_time / (service_time + parallel_time);
-        double theoretical_speedup = 1.0 / (f_serial + f_parallel / (n_procs * n_threads));
-        double efficiency = (theoretical_speedup / (n_procs * n_threads)) * 100.0;
-        
-        printf("Serial fraction: %.4f\n", f_serial);
-        printf("Parallel fraction: %.4f\n", f_parallel);
-        printf("Total parallelism: %d (procs) x %d (threads) = %d\n", n_procs, n_threads, n_procs * n_threads);
-        printf("Theoretical max speedup (Amdahl): %.2fx\n", theoretical_speedup);
-        printf("Efficiency: %.2f%%\n", efficiency);
-        printf("======================\n\n");
-    }
 
     // Save the data
     if(rank == 0){
@@ -187,7 +163,7 @@ int main(int argc, char const **argv){
         
         // Verify size
         if(all_results.size() != total_atoms * total_atoms){
-            printf("ERROR: Size mismatch! Expected %d, got %zu\n", 
+            printf("ERROR: Size mismatch! Expected %d, got %lu\n", 
                 total_atoms * total_atoms, all_results.size());
             MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
         }
@@ -196,44 +172,10 @@ int main(int argc, char const **argv){
         //save_distance_matrix(all_results, total_atoms, output_dir, pdb_filename);
     }
 
-    
+    if(rank == 0){
+        printf("alg-time | %.10f | s\n", parallel_time);
+    }
 
-
-    /*TODO:
-    
-        [1,2,3,4,5,6,7,8] -> 
-        -> [
-            [0, 1, 2, 3, 4, 5, 6, 7]
-            [1, 0, 1, 2, 3, 4, 5, 6]
-            [2, 1, 0, 1, 2, 3, 4 ,5]
-            [3, 2, 1, 0, 1, 2, 3, 4]
-            [4, 3, 2, 1, 0, 1, 2, 3]
-            [5, 4, 3, 2, 1, 0, 1, 2]
-            [6, 5, 4, 3, 2, 1, 0, 1]
-            [7, 6 ,5 ,4, 3, 2, 1, 0]
-            ]
-
-
-        r0 -> [1,2] ->
-                    -> [
-                        [0, 1]
-                        [1, 0]
-                        ] X
-
-        r1 -> [2,3] -> 
-                    -> [[0,1] [10]]
-
-        r0 -> [1,2] -> 
-                    -> [
-                        [0, 1, 2, 3, 4, 5, 6, 7]
-                        [1, 0, 1, 2, 3, 4, 5, 6]
-                        ]
-    
-    */
-
-
-
-    MPI_Type_free(&MPI_ATOM);
     MPI_Finalize();
     
     return EXIT_SUCCESS;

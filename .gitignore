@@ -45,3 +45,4 @@ results/*
 plots/*
 bin/*
 build/*
+benchmark_results/*

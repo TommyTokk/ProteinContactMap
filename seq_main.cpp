@@ -1,10 +1,14 @@
 #include "lib/utils.hpp"
 #include <chrono>
 #include <iostream>
+#include <omp.h>
 
 
 int main(int argc, char const *argv[]){
-    const auto start{std::chrono::steady_clock::now()};
+    double service_start, service_end, service_time;
+    double parallel_start, parallel_end, parallel_time;
+
+    
     if(argc <= 2){
         printf("[ERROR] USAGE: ./main <input_path> <output_dir_path>\n");
         return EXIT_FAILURE;
@@ -44,10 +48,12 @@ int main(int argc, char const *argv[]){
             m.Z[i] = alphas_vec[i].z;
         }
 
-        
+        service_start = omp_get_wtime(); 
 
         //std::vector<uint8_t> dm = get_residue_distances_opt(alphas_vec);
-        std::vector<uint8_t> dm = get_residue_distances_soaV2(m, alphas_size);
+        //std::vector<uint8_t> dm = get_residue_distances_soaV2(m, alphas_size);
+        std::vector<uint8_t> dm = get_residue_distances_seq_inj(m, alphas_size);
+        service_end = omp_get_wtime();
 
         //save_distance_matrix(dm, alphas_size, output_dir, pdb_filename);
 
@@ -57,10 +63,10 @@ int main(int argc, char const *argv[]){
         return EXIT_FAILURE;
     }
 
-    const auto finish{std::chrono::steady_clock::now()};
-    const std::chrono::duration<double> elapsed_seconds{finish - start};
-        
-    std::cout<<std::to_string(elapsed_seconds.count()) + "(s)"<<std::endl;
+    
+    service_time = service_end - service_start; 
+
+    printf("alg-time | %.10f | s\n", service_time);
 
     
 
