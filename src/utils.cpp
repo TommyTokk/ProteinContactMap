@@ -275,7 +275,7 @@ std::vector<uint8_t> get_residue_distances_seq_inj(const Model& model, int size)
 //================================================
 
 /**
- * Optimized version of the distance matrix calculation using OpenMP for parallelization. It uses a vector unsigned integers to store the distance matrix.
+ * WARNING: This function is not used in the current implementation, and it is not optimized for performance. It is provided as a reference for a possible OpenMP implementation of the distance matrix calculation using the AoS approach
  * 
  * The distance matrix is stored in a 1D vector, where the element at index (i * num_atoms + j) corresponds to the distance between the i-th and j-th alpha carbon atoms.
  * 
@@ -287,6 +287,7 @@ std::vector<uint8_t> get_residue_distances_seq_inj(const Model& model, int size)
  * @param n_threads The number of threads to use for parallelization
  * @return A vector representing the distance matrix, where each element is 1 if the distance between the corresponding atoms is less than or equal to 8 angstroms, and 0 otherwise
  */
+[[unused]]
 std::vector<uint8_t> get_residue_distances_omp_opt(const std::vector<Atom>& alphas, int n_threads) {
     // Get the number of atoms and initialize the distance vector
     size_t num_atoms = alphas.size();
