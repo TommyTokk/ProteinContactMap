@@ -40,9 +40,9 @@
 # debug information files
 *.dwo
 
-data/*
-results/*
-plots/*
-bin/*
-build/*
-benchmark_results/*
+data/
+results/
+plots/
+bin/
+build/
+benchmark_results/

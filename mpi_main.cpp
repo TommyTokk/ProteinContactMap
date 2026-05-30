@@ -17,25 +17,21 @@ int main(int argc, char const **argv){
 
     //Getting the number of proces
     int n_procs, rank;
-
+    
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &n_procs);
-
+    
+    if(argc <= 3){
+        if(rank == 0) printf("[ERROR] USAGE: ./main <input_path> <output_dir_path> n_threads\n");
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
     std::vector<Atom> alphas_vec;
 
     const char *file_path = argv[1];
     const char *output_dir = argv[2];
     const int n_threads = atoi(argv[3]);
 
-    if(argc <= 3){
-        if(rank == 0) printf("[ERROR] USAGE: ./main <input_path> <output_dir_path> n_threads\n");
-        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-    }
-
-    double service_start, service_end, service_time;
     double parallel_start, parallel_end, parallel_time;
-    
-    service_start = MPI_Wtime();
 
     std::vector<int> counts(n_procs), starts(n_procs);
     
@@ -109,11 +105,10 @@ int main(int argc, char const **argv){
     //Calculate the disposals
     std::vector<int> displs(n_procs);
     std::exclusive_scan(counts.begin(), counts.end(), displs.begin(), 0);
-    
 
-    //std::vector<uint8_t> local_dm = get_residue_distances_mpi_soa(m, alphas_size, my_start, my_count, n_threads);
+    std::vector<uint8_t> local_dm = get_residue_distances_mpi_soa(m, alphas_size, my_start, my_count, n_threads);
 
-    std::vector<uint8_t> local_dm = get_residue_distances_mpi_inj(m, alphas_size, my_start, my_count, n_threads);
+    //std::vector<uint8_t> local_dm = get_residue_distances_mpi_inj(m, alphas_size, my_start, my_count, n_threads);
 
     int nz = 0;
     for(auto el : local_dm){
@@ -130,6 +125,18 @@ int main(int argc, char const **argv){
     std::vector<int> flat_displs(n_procs);
     std::exclusive_scan(flat_counts.begin(), flat_counts.end(), 
                    flat_displs.begin(), 0);
+
+    // Verify local_dm size matches the expected count
+    if (local_dm.size() != static_cast<size_t>(flat_counts[rank])) {
+        printf(
+            "[ERROR] Rank %d: local_dm size mismatch. Expected %d, got %lu\n",
+            rank,
+            flat_counts[rank],
+            static_cast<unsigned long>(local_dm.size())
+        );
+
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
 
     // Gather the data
     std::vector<uint8_t> all_results;
@@ -152,8 +159,6 @@ int main(int argc, char const **argv){
     );
 
     parallel_end = MPI_Wtime();
-
-    service_time = service_end - service_start;
     parallel_time = parallel_end - parallel_start;
 
 
@@ -169,7 +174,9 @@ int main(int argc, char const **argv){
         }
         
         // Save the matrix directly (already in flat row-major format)
-        //save_distance_matrix(all_results, total_atoms, output_dir, pdb_filename);
+
+        // Comment this line during benchmarking to avoid usless wait
+        save_distance_matrix(all_results, total_atoms, output_dir, pdb_filename);
     }
 
     if(rank == 0){

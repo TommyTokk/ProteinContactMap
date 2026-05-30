@@ -11,8 +11,6 @@ int main(int argc, char const *argv[]){
         return EXIT_FAILURE;
     }
 
-
-
     const char *file_path = argv[1];
     const char *output_dir = argv[2];
     const int n_threads = atoi(argv[3]);
@@ -49,14 +47,22 @@ int main(int argc, char const *argv[]){
         }
         parallel_start = omp_get_wtime();
 
-        //std::vector<std::vector<float>> dm = get_residue_distances_omp(alphas_vec,0,alphas_vec.size(), n_threads);
-        //std::vector<uint8_t> dm = get_residue_distances_omp_opt(alphas_vec, n_threads);
-        //std::vector<uint8_t> dm = get_residue_distances_omp_soa(m, alphas_size, n_threads);
+        std::vector<uint8_t> dm = get_residue_distances_omp_opt(alphas_vec, n_threads);
+
+        /* Use the following lines to test the OMP SoA version of the code
+        
+        std::vector<uint8_t> dm = get_residue_distances_omp_soa(m, alphas_size, n_threads);
+        */
+
+        /*Use the following lines to test the OMP version of the code with injected workload
+
         std::vector<uint8_t> dm = get_residue_distances_omp_inj(m, alphas_size, n_threads);
+        */
 
         parallel_end = omp_get_wtime();
 
-        //save_distance_matrix(dm, alphas_size, output_dir, pdb_filename);
+        // Comment this line during benchmarking to avoid usless wait
+        save_distance_matrix(dm, alphas_size, output_dir, pdb_filename);
     }else{
         printf("[ERROR] No alpha carbon atoms found in the input file.\n");
         fclose(fptr);

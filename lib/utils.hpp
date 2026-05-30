@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <omp.h>
+#include <cstring>
 
 constexpr int BLOCK_SIZE = 256;
 const int N_ITERATIONS = 100;

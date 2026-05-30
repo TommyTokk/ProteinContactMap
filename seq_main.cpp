@@ -49,13 +49,25 @@ int main(int argc, char const *argv[]){
         }
 
         service_start = omp_get_wtime(); 
+        
+        std::vector<uint8_t> dm = get_residue_distances_soaV2(m, alphas_size);
+        
+        /* 
+        Uncomment this line if exectution without SoA optimisation is required
+        
+        std::vector<uint8_t> dm = get_residue_distances(alphas_vec);
+        */
 
-        //std::vector<uint8_t> dm = get_residue_distances_opt(alphas_vec);
-        //std::vector<uint8_t> dm = get_residue_distances_soaV2(m, alphas_size);
+        /*
+        Uncomment this line if the workload injection is required
+
         std::vector<uint8_t> dm = get_residue_distances_seq_inj(m, alphas_size);
+        */
+
         service_end = omp_get_wtime();
 
-        //save_distance_matrix(dm, alphas_size, output_dir, pdb_filename);
+        //Commment this line if you don't want to save the distance matrix to a file (e.g. during benchmarking) 
+        save_distance_matrix(dm, alphas_size, output_dir, pdb_filename);
 
     }else{
         printf("[ERROR] No alpha carbon atoms found in the input file.\n");
