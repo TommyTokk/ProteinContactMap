@@ -115,8 +115,10 @@ int main(int argc, char const **argv){
     std::exclusive_scan(counts.begin(), counts.end(), displs.begin(), 0);
 
     // Calculate the local distance matrix for each process
+    // Comment the following line during benchmarking to test the MPI version of the code with injected workload
     std::vector<uint8_t> local_dm = get_residue_distances_mpi_soa(m, alphas_size, my_start, my_count, n_threads);
 
+    // Uncomment the following line to test the MPI version of the code with injected workload
     //std::vector<uint8_t> local_dm = get_residue_distances_mpi_inj(m, alphas_size, my_start, my_count, n_threads);
 
     // Count non-zero elements in local_dm for debugging

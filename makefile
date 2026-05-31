@@ -3,6 +3,11 @@ CXX = g++
 MPICXX = /usr/local/openmpi/bin/mpic++
 MPIRUN = /usr/local/openmpi/bin/mpirun
 CXXFLAGS = -std=c++20 -Wall -O3 -march=native -fopt-info-vec-optimized
+
+# Uncomment the line below to compile without optimization
+#CXXFLAGS = -std=c++20 -Wall -march=native -fopt-info-vec-optimized
+
+
 OMPFLAGS = -fopenmp
 INCLUDES = -I.
 

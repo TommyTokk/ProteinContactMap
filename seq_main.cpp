@@ -60,6 +60,7 @@ int main(int argc, char const *argv[]){
         service_start = omp_get_wtime(); 
         
         // Compute the distance matrix using the SoA optimized version
+        // Comment this line during benchmarking to test the OMP version of the code with injected workload or to test the version without SoA optimization
         std::vector<uint8_t> dm = get_residue_distances_soaV2(m, alphas_size);
         
         /* 
