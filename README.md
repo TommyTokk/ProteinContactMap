@@ -1,7 +1,6 @@
 # Parallelisation Analysis of Protein Contact Map Computation
 
 **Author:** Tommaso Tocchini  
-**Student ID:** 618135  
 **Academic Year:** 2025–2026
 
 ---
