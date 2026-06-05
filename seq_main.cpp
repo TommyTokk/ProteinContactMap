@@ -67,14 +67,14 @@ int main(int argc, char const *argv[]){
         Uncomment this line if exectution without SoA optimisation is required
         WARNING: This is the version used in the report in the section "3.2 Execution without optimisations",
         if these line is uncommented, please remember to remove the "-O3" flag from the Makefile, otherwise the execution time will be too short and it will not be possible to see the difference between the two versions.
-        std::vector<uint8_t> dm = get_residue_distances(alphas_vec);
         */
+        //std::vector<uint8_t> dm = get_residue_distances(alphas_vec);
+
 
         /*
         Uncomment this line if the workload injection is required
-
-        std::vector<uint8_t> dm = get_residue_distances_seq_inj(m, alphas_size);
         */
+        //std::vector<uint8_t> dm = get_residue_distances_seq_inj(m, alphas_size);
 
         service_end = omp_get_wtime();
 

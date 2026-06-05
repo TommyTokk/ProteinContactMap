@@ -36,13 +36,10 @@ typedef struct Model{
 std::unordered_map<int, std::vector<Atom>> load_atoms_from_file(FILE *fptr);
 std::unordered_map<int, std::vector<Atom>> get_alphas(std::unordered_map<int, std::vector<Atom>> map);
 
-std::vector<std::vector<float>> get_residue_distances(std::vector<Atom> alphas);
-std::vector<uint8_t> get_residue_distances_opt(const std::vector<Atom>& alphas);
-std::vector<uint8_t>get_residue_distances_soa(const Model& model, int size);
+std::vector<uint8_t> get_residue_distances(const std::vector<Atom>& alphas);
 std::vector<uint8_t>get_residue_distances_soaV2(const Model& model, int size);
 std::vector<uint8_t> get_residue_distances_seq_inj(const Model& model, int size);
 
-std::vector<std::vector<float>> get_residue_distances_omp(std::vector<Atom> alphas, size_t start, size_t size, int n_threads);
 std::vector<uint8_t> get_residue_distances_omp_opt(const std::vector<Atom>& alphas, int n_threads);
 std::vector<uint8_t> get_residue_distances_omp_soa(const Model& model, int size, int n_threads);
 std::vector<uint8_t> get_residue_distances_omp_inj(const Model& model, int size, int n_threads);
