@@ -59,11 +59,11 @@ int main(int argc, char const *argv[]){
 
         // Compute the distance matrix using the OMP SoA optimized version
         // Comment this line during benchmarking to test the OMP version of the code with injected workload
-        //std::vector<uint8_t> dm = get_residue_distances_omp_soa(m, alphas_size, n_threads);
+        std::vector<uint8_t> dm = get_residue_distances_omp_soa(m, alphas_size, n_threads);
 
 
         /* Use the following lines to test the OMP version of the code with injected workload*/
-        std::vector<uint8_t> dm = get_residue_distances_omp_inj(m, alphas_size, n_threads);
+        //std::vector<uint8_t> dm = get_residue_distances_omp_inj(m, alphas_size, n_threads);
 
         parallel_end = omp_get_wtime();
 
